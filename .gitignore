@@ -1,0 +1,11 @@
+kino/
+__pycache__/
+*.pyc
+*.pyo
+*.exe
+*.dll
+*.so
+*.dylib
+.env
+.DS_Store
+movies3_kopia.py

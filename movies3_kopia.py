@@ -1,6 +1,8 @@
+import os
+os.environ["PATH"] = r"C:\ProgramData\chocolatey\bin" + os.pathsep + os.environ["PATH"]
+
 import streamlit as st
 import tempfile
-import os
 import subprocess
 from pathlib import Path
 import requests
@@ -13,7 +15,6 @@ import ffmpeg
 import zipfile
 from datetime import timedelta
 import re
-
 # Załadowanie zmiennych środowiskowych
 load_dotenv()
 
@@ -24,38 +25,32 @@ class SubtitleGenerator:
     def setup_openai(self, api_key):
         """Konfiguracja OpenAI API"""
         try:
-            
             self.client = OpenAI(api_key=api_key)
+            #st.info(f"Używany klucz (początek): {api_key[:5]}***")
             return True
         except Exception as e:
             st.error(f"Błąd konfiguracji OpenAI: {e}")
             return False
-
+    
     def extract_audio_from_video(self, video_path, audio_path):
-        """Wyodrębnienie audio z pliku wideo z dokładnym logowaniem błędów"""
+        """Wyodrębnienie audio z pliku wideo"""
         try:
-            # Użycie ffmpeg do wyodrębnienia audio
             (
                 ffmpeg
                 .input(video_path)
-                .output(audio_path, acodec='libmp3lame', ar=16000)
+                .output(audio_path, acodec='pcm_s16le', ac=1, ar=16000)
                 .overwrite_output()
-                .run(capture_stdout=True, capture_stderr=True) # Przechwycenie logów
+                .run(capture_stdout=True, capture_stderr=True)
             )
             return True
+
         except ffmpeg.Error as e:
-            # Pokażemy błąd w terminalu
-            if e.stderr:
-                prawdziwy_blad = e.stderr.decode('utf8', errors='ignore')
-                print("\n======= SZCZEGÓŁY BŁĘDU FFMPEG =======")
-                print(prawdziwy_blad)
-                print("======================================\n")
-                st.error("Błąd FFmpeg. Sprawdź terminal na dole ekranu po szczegóły!")
-            else:
-                st.error("Błąd FFmpeg, ale brak szczegółów w stderr.")
+            error_details = e.stderr.decode("utf8", errors="replace") if e.stderr else str(e)
+            st.error(f"Szczegóły błędu FFmpeg:\n{error_details}")
             return False
+
         except Exception as e:
-            st.error(f"Inny błąd wyodrębniania audio: {e}")
+            st.error(f"Błąd wyodrębniania audio: {e}")
             return False
         
     def transcribe_audio(self, audio_path):
@@ -73,35 +68,6 @@ class SubtitleGenerator:
             st.error(f"Błąd transkrypcji: {e}")
             return None
     
-    def detect_language(self, audio_path):
-        """
-        Rozpoznaje język nagrania za pomocą modelu OpenAI Whisper.
-        """
-        try:
-            with open(audio_path, 'rb') as audio_file:
-                # Wywołanie API z wymogiem pełnego JSONa, aby uzyskać metadane
-                transcript = self.client.audio.transcriptions.create(
-                    model='whisper-1', 
-                    file=audio_file, 
-                    response_format='verbose_json'
-                )
-            
-            # 1. Odczytanie kodu języka z odpowiedzi modelu Whisper
-            # Obiekt zwracany przez API posiada atrybut 'language'
-            language_code = getattr(transcript, 'language', None)
-            
-            if language_code:
-                # 3. Zwracanie kodu języka (np. 'pl', 'en', 'es')
-                return language_code
-            else:
-                st.warning("Model Whisper nie zwrócił informacji o języku.")
-                return None
-                
-        # 2. Obsługa błędów za pomocą bloku try-except i interfejsu Streamlit
-        except Exception as e:
-            st.error(f'Wystąpił błąd podczas rozpoznawania języka z pliku audio: {e}')
-            return None
-        
     def create_srt_file(self, transcript, output_path):
         """Tworzenie pliku SRT z transkrypcji"""
         try:
@@ -501,7 +467,6 @@ def main():
             st.error("❌ Wybierz plik wideo!")
             return
         
-        
         if not api_key:
             st.error("❌ Wprowadź klucz API OpenAI!")
             return
@@ -516,7 +481,7 @@ def main():
                 f.write(uploaded_video.read())
             
             # Ścieżki plików
-            audio_path = temp_dir / "extracted_audio.mp3"
+            audio_path = temp_dir / "extracted_audio.wav"
             srt_original = temp_dir / "subtitles_original.srt"
             srt_translated = temp_dir / "subtitles_translated.srt"
             output_video = temp_dir / "output_with_subtitles.mp4"

@@ -24,13 +24,11 @@ class SubtitleGenerator:
     def setup_openai(self, api_key):
         """Konfiguracja OpenAI API"""
         try:
-            
             self.client = OpenAI(api_key=api_key)
             return True
         except Exception as e:
             st.error(f"Błąd konfiguracji OpenAI: {e}")
             return False
-
     def extract_audio_from_video(self, video_path, audio_path):
         """Wyodrębnienie audio z pliku wideo z dokładnym logowaniem błędów"""
         try:
@@ -57,7 +55,7 @@ class SubtitleGenerator:
         except Exception as e:
             st.error(f"Inny błąd wyodrębniania audio: {e}")
             return False
-        
+
     def transcribe_audio(self, audio_path):
         """Transkrypcja audio na tekst za pomocą OpenAI Whisper"""
         try:
@@ -73,35 +71,6 @@ class SubtitleGenerator:
             st.error(f"Błąd transkrypcji: {e}")
             return None
     
-    def detect_language(self, audio_path):
-        """
-        Rozpoznaje język nagrania za pomocą modelu OpenAI Whisper.
-        """
-        try:
-            with open(audio_path, 'rb') as audio_file:
-                # Wywołanie API z wymogiem pełnego JSONa, aby uzyskać metadane
-                transcript = self.client.audio.transcriptions.create(
-                    model='whisper-1', 
-                    file=audio_file, 
-                    response_format='verbose_json'
-                )
-            
-            # 1. Odczytanie kodu języka z odpowiedzi modelu Whisper
-            # Obiekt zwracany przez API posiada atrybut 'language'
-            language_code = getattr(transcript, 'language', None)
-            
-            if language_code:
-                # 3. Zwracanie kodu języka (np. 'pl', 'en', 'es')
-                return language_code
-            else:
-                st.warning("Model Whisper nie zwrócił informacji o języku.")
-                return None
-                
-        # 2. Obsługa błędów za pomocą bloku try-except i interfejsu Streamlit
-        except Exception as e:
-            st.error(f'Wystąpił błąd podczas rozpoznawania języka z pliku audio: {e}')
-            return None
-        
     def create_srt_file(self, transcript, output_path):
         """Tworzenie pliku SRT z transkrypcji"""
         try:
@@ -501,7 +470,6 @@ def main():
             st.error("❌ Wybierz plik wideo!")
             return
         
-        
         if not api_key:
             st.error("❌ Wprowadź klucz API OpenAI!")
             return
@@ -657,3 +625,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    

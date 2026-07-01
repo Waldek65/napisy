@@ -20,6 +20,54 @@ load_dotenv()
 class SubtitleGenerator:
     def __init__(self):
         self.client = None
+
+    @staticmethod
+    def get_language_name(lang_code):
+        """
+        Zwraca przyjazną dla użytkownika nazwę języka na podstawie kodu ISO-639-1.
+        Zawiera najpopularniejsze i mniej popularne języki oraz wartość domyślną.
+        """
+        language_map = {
+            # Najpopularniejsze języki
+            'en': 'Angielski 🇺🇸/🇬🇧',
+            'es': 'Hiszpański 🇪🇸',
+            'fr': 'Francuski 🇫🇷',
+            'de': 'Niemiecki 🇩🇪',
+            'it': 'Włoski 🇮🇹',
+            'pl': 'Polski 🇵🇱',
+            'ru': 'Rosyjski 🇷🇺',
+            'ja': 'Japoński 🇯🇵',
+            'ko': 'Koreański 🇰🇷',
+            'zh': 'Chiński 🇨🇳',
+            'pt': 'Portugalski 🇵🇹/🇧🇷',
+            'nl': 'Holenderski 🇳🇱',
+            'ar': 'Arabski 🇸🇦',
+            'tr': 'Turecki 🇹🇷',
+            
+            # Mniej popularne języki (wybór z tych obsługiwanych przez Whisper)
+            'uk': 'Ukraiński 🇺🇦',
+            'cs': 'Czeski 🇨🇿',
+            'sk': 'Słowacki 🇸🇰',
+            'el': 'Grecki 🇬🇷',
+            'hu': 'Węgierski 🇭🇺',
+            'sv': 'Szwedzki 🇸🇪',
+            'da': 'Duński 🇩🇰',
+            'fi': 'Fiński 🇫🇮',
+            'no': 'Norweski 🇳🇴',
+            'ro': 'Rumuński 🇷🇴',
+            'bg': 'Bułgarski 🇧🇬',
+            'hr': 'Chorwacki 🇭🇷',
+            'sr': 'Serbski 🇷🇸',
+            'th': 'Tajski 🇹🇭',
+            'vi': 'Wietnamski 🇻🇳',
+            'id': 'Indonezyjski 🇮🇩',
+            'he': 'Hebrajski 🇮🇱',
+            'hi': 'Hindi 🇮🇳'
+        }
+        
+        # Zwrócenie przyjaznej nazwy lub wartości domyślnej, jeśli języka nie ma w słowniku
+        # lang_code.lower() zapobiega błędom w przypadku wielkich liter (np. 'PL' zamiast 'pl')
+        return language_map.get(lang_code.lower(), f"Nieznany język ({lang_code})")
         
     def setup_openai(self, api_key):
         """Konfiguracja OpenAI API"""
@@ -152,24 +200,14 @@ class SubtitleGenerator:
         
         return chunks
     
+    
     def translate_srt(self, srt_content, target_language):
         """Tłumaczenie napisów na wybrany język używając GPT-4o"""
         try:
-            # Mapowanie kodów języków na pełne nazwy
-            language_names = {
-                'en': 'angielski',
-                'es': 'hiszpański', 
-                'fr': 'francuski',
-                'de': 'niemiecki',
-                'it': 'włoski',
-                'pl': 'polski',
-                'ru': 'rosyjski',
-                'ja': 'japoński',
-                'ko': 'koreański',
-                'zh': 'chiński'
-            }
-            
-            target_lang_name = language_names.get(target_language, target_language)
+            # Użycie naszego zunifikowanego słownika (z usunięciem flag dla promptu GPT)
+            friendly_name = self.get_language_name(target_language)
+            # Usuwamy ewentualne flagi i dodatki (np. "Angielski 🇺🇸/🇬🇧" -> "Angielski") żeby nie mylić modelu GPT
+            target_lang_name = friendly_name.split(' ')[0]
             
             subs = pysrt.from_string(srt_content)
             translated_subs = []
@@ -539,6 +577,13 @@ def main():
                 status_text.text("🎤 Transkrypcja audio przez OpenAI Whisper...")
                 st.info("⏳ To może zająć kilka minut w zależności od długości filmu")
                 transcript = generator.transcribe_audio(str(audio_path))
+                status_text.text('🔍 Wykrywanie języka nagrania...')
+                detected_lang = generator.detect_language(str(audio_path))
+                
+                if detected_lang:
+                    st.success(f'🗣️ Wykryto język oryginalny wideo: **{detected_lang.upper()}**')
+                else:
+                    st.warning('⚠️ Nie udało się wykryć języka wideo.')
                 if transcript:
                     progress.progress(40)
                     st.success("✅ Transkrypcja zakończona")

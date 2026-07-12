@@ -62,7 +62,41 @@ class SubtitleGenerator:
             'vi': 'Wietnamski 🇻🇳',
             'id': 'Indonezyjski 🇮🇩',
             'he': 'Hebrajski 🇮🇱',
-            'hi': 'Hindi 🇮🇳'
+            'hi': 'Hindi 🇮🇳',
+
+            # Angielskie nazwy zwracane przez Whisper
+            'english': 'Angielski 🇺🇸/🇬🇧',
+            'spanish': 'Hiszpański 🇪🇸',
+            'french': 'Francuski 🇫🇷',
+            'german': 'Niemiecki 🇩🇪',
+            'italian': 'Włoski 🇮🇹',
+            'polish': 'Polski 🇵🇱',
+            'russian': 'Rosyjski 🇷🇺',
+            'japanese': 'Japoński 🇯🇵',
+            'korean': 'Koreański 🇰🇷',
+            'chinese': 'Chiński 🇨🇳',
+            'portuguese': 'Portugalski 🇵🇹/🇧🇷',
+            'dutch': 'Holenderski 🇳🇱',
+            'arabic': 'Arabski 🇸🇦',
+            'turkish': 'Turecki 🇹🇷',
+            'ukrainian': 'Ukraiński 🇺🇦',
+            'czech': 'Czeski 🇨🇿',
+            'slovak': 'Słowacki 🇸🇰',
+            'greek': 'Grecki 🇬🇷',
+            'hungarian': 'Węgierski 🇭🇺',
+            'swedish': 'Szwedzki 🇸🇪',
+            'danish': 'Duński 🇩🇰',
+            'finnish': 'Fiński 🇫🇮',
+            'norwegian': 'Norweski 🇳🇴',
+            'romanian': 'Rumuński 🇷🇴',
+            'bulgarian': 'Bułgarski 🇧🇬',
+            'croatian': 'Chorwacki 🇭🇷',
+            'serbian': 'Serbski 🇷🇸',
+            'thai': 'Tajski 🇹🇭',
+            'vietnamese': 'Wietnamski 🇻🇳',
+            'indonesian': 'Indonezyjski 🇮🇩',
+            'hebrew': 'Hebrajski 🇮🇱',
+            'hindi': 'Hindi 🇮🇳',
         }
         
         # Zwrócenie przyjaznej nazwy lub wartości domyślnej, jeśli języka nie ma w słowniku
@@ -509,7 +543,29 @@ def main():
             'ru': 'Rosyjski 🇷🇺',
             'ja': 'Japoński 🇯🇵',
             'ko': 'Koreański 🇰🇷',
-            'zh': 'Chiński 🇨🇳'
+            'zh': 'Chiński 🇨🇳',
+            'pt': 'Portugalski 🇵🇹/🇧🇷',
+            'nl': 'Holenderski 🇳🇱',
+            'ar': 'Arabski 🇸🇦',
+            'tr': 'Turecki 🇹🇷',
+            'uk': 'Ukraiński 🇺🇦',
+            'cs': 'Czeski 🇨🇿',
+            'sk': 'Słowacki 🇸🇰',
+            'el': 'Grecki 🇬🇷',
+            'hu': 'Węgierski 🇭🇺',
+            'sv': 'Szwedzki 🇸🇪',
+            'da': 'Duński 🇩🇰',
+            'fi': 'Fiński 🇫🇮',
+            'no': 'Norweski 🇳🇴',
+            'ro': 'Rumuński 🇷🇴',
+            'bg': 'Bułgarski 🇧🇬',
+            'hr': 'Chorwacki 🇭🇷',
+            'sr': 'Serbski 🇷🇸',
+            'th': 'Tajski 🇹🇭',
+            'vi': 'Wietnamski 🇻🇳',
+            'id': 'Indonezyjski 🇮🇩',
+            'he': 'Hebrajski 🇮🇱',
+            'hi': 'Hindi 🇮🇳'
         }
         
         target_lang = st.selectbox(
@@ -581,7 +637,12 @@ def main():
                 detected_lang = generator.detect_language(str(audio_path))
                 
                 if detected_lang:
-                    st.success(f'🗣️ Wykryto język oryginalny wideo: **{detected_lang.upper()}**')
+                    detected_language_name=generator.get_language_name(detected_lang)
+
+                    st.success(
+                        f'🗣️ Wykryto język oryginalny wideo: '
+                        f'**{detected_language_name}**'
+                    )
                 else:
                     st.warning('⚠️ Nie udało się wykryć języka wideo.')
                 if transcript:

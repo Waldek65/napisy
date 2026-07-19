@@ -50,6 +50,30 @@ class SubtitleGenerator:
         except Exception as e:
             st.error(f"Błąd transkrypcji: {e}")
             return None
+   
+    def get_detected_language(self, transcript):
+        """Zwraca kod języka wykryty przez Whisper, np. pl, en, es."""
+        try:
+            if transcript is None:
+                st.error("Brak wyniku transkrypcji — nie można wykryć języka.")
+                return None
+
+            # Standardowy sposób: obiekt odpowiedzi OpenAI
+            language = getattr(transcript, "language", None)
+
+            # Zabezpieczenie na wypadek odpowiedzi w formie słownika
+            if language is None and isinstance(transcript, dict):
+                language = transcript.get("language")
+
+            if not language or not isinstance(language, str):
+                st.warning("Whisper nie zwrócił kodu wykrytego języka.")
+                return None
+
+            return language.lower()
+
+        except Exception as e:
+            st.error(f"Błąd odczytu języka z transkrypcji: {e}")
+            return None
 
     def create_srt_file(self, transcript, output_path):
         """Tworzenie pliku SRT z transkrypcji"""
@@ -462,10 +486,19 @@ def main():
 
                 status_text.text("🎤 Transkrypcja audio przez OpenAI Whisper...")
                 st.info("⏳ To może zająć kilka minut w zależności od długości filmu")
+
                 transcript = generator.transcribe_audio(str(audio_path))
+
                 if transcript:
+                    detected_language = generator.get_detected_language(transcript)
+
                     progress.progress(40)
                     st.success("✅ Transkrypcja zakończona")
+
+                    if detected_language:
+                        st.success(f"🌍 Wykryty język filmu: {detected_language}")
+                    else:
+                        st.warning("⚠️ Nie udało się automatycznie wykryć języka filmu.")
                 else:
                     st.error("❌ Błąd transkrypcji")
                     return

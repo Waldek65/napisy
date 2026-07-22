@@ -50,7 +50,6 @@ class SubtitleGenerator:
         except Exception as e:
             st.error(f"Błąd transkrypcji: {e}")
             return None
-   
     def get_detected_language(self, transcript):
         """Zwraca kod języka wykryty przez Whisper, np. pl, en, es."""
         try:
@@ -58,10 +57,8 @@ class SubtitleGenerator:
                 st.error("Brak wyniku transkrypcji — nie można wykryć języka.")
                 return None
 
-            # Standardowy sposób: obiekt odpowiedzi OpenAI
             language = getattr(transcript, "language", None)
 
-            # Zabezpieczenie na wypadek odpowiedzi w formie słownika
             if language is None and isinstance(transcript, dict):
                 language = transcript.get("language")
 
@@ -74,6 +71,52 @@ class SubtitleGenerator:
         except Exception as e:
             st.error(f"Błąd odczytu języka z transkrypcji: {e}")
             return None
+
+    def get_supported_languages(self):
+        """Zwraca słownik obsługiwanych języków: kod -> nazwa przyjazna użytkownikowi."""
+        return {
+            'en': 'Angielski 🇺🇸/🇬🇧',
+            'es': 'Hiszpański 🇪🇸',
+            'fr': 'Francuski 🇫🇷',
+            'de': 'Niemiecki 🇩🇪',
+            'it': 'Włoski 🇮🇹',
+            'pl': 'Polski 🇵🇱',
+            'ru': 'Rosyjski 🇷🇺',
+            'ja': 'Japoński 🇯🇵',
+            'ko': 'Koreański 🇰🇷',
+            'zh': 'Chiński 🇨🇳',
+            'pt': 'Portugalski 🇵🇹/🇧🇷',
+            'nl': 'Holenderski 🇳🇱',
+            'ar': 'Arabski 🇸🇦',
+            'tr': 'Turecki 🇹🇷',
+            'uk': 'Ukraiński 🇺🇦',
+            'cs': 'Czeski 🇨🇿',
+            'sk': 'Słowacki 🇸🇰',
+            'el': 'Grecki 🇬🇷',
+            'hu': 'Węgierski 🇭🇺',
+            'sv': 'Szwedzki 🇸🇪',
+            'da': 'Duński 🇩🇰',
+            'fi': 'Fiński 🇫🇮',
+            'no': 'Norweski 🇳🇴',
+            'ro': 'Rumuński 🇷🇴',
+            'bg': 'Bułgarski 🇧🇬',
+            'hr': 'Chorwacki 🇭🇷',
+            'sr': 'Serbski 🇷🇸',
+            'th': 'Tajski 🇹🇭',
+            'vi': 'Wietnamski 🇻🇳',
+            'id': 'Indonezyjski 🇮🇩',
+            'he': 'Hebrajski 🇮🇱',
+            'hi': 'Hindi 🇮🇳'
+        }
+
+    def get_language_name(self, language_code):
+        """Zwraca przyjazną nazwę języka na podstawie kodu."""
+        languages = self.get_supported_languages()
+
+        if not language_code:
+            return "Nieznany język"
+
+        return languages.get(language_code.lower(), "Nieznany język")
 
     def create_srt_file(self, transcript, output_path):
         """Tworzenie pliku SRT z transkrypcji"""
@@ -88,243 +131,18 @@ class SubtitleGenerator:
                     start_time = self.seconds_to_srt_time(segment['start'])
                     end_time = self.seconds_to_srt_time(segment['end'])
                     text = segment['text'].strip()
-                # ✅ POPRAWIONE: HTML entity na normalny znak
+
                 srt_content += f"{i}\n{start_time} --> {end_time}\n{text}\n\n"
+
             with open(output_path, 'w', encoding='utf-8') as f:
                 f.write(srt_content)
+
             return srt_content
+
         except Exception as e:
             st.error(f"Błąd tworzenia SRT: {e}")
             return None
-
-    def seconds_to_srt_time(self, seconds):
-        """Konwersja sekund do formatu czasowego SRT"""
-        hours = int(seconds // 3600)
-        minutes = int((seconds % 3600) // 60)
-        secs = int(seconds % 60)
-        millisecs = int((seconds - int(seconds)) * 1000)
-        return f"{hours:02d}:{minutes:02d}:{secs:02d},{millisecs:03d}"
-
-    def split_text_for_translation(self, subs, max_chunk_size=10):
-        """Dzielenie napisów na fragmenty do tłumaczenia"""
-        chunks = []
-        current_chunk = []
-        for sub in subs:
-            current_chunk.append(sub)
-            if len(current_chunk) >= max_chunk_size:
-                chunks.append(current_chunk)
-                current_chunk = []
-        if current_chunk:
-            chunks.append(current_chunk)
-        return chunks
-
-    def get_video_duration(self, video_path):
-        """Pobierz długość wideo w minutach"""
-        try:
-            probe = ffmpeg.probe(str(video_path))
-            duration = float(probe['streams'][0]['duration'])
-            return duration / 60
-        except Exception as e:
-            # Fallback estimate based on file size (więcej szczegółów w error handling)
-            st.warning(f"Nie można odczytać długości wideo: {e}")
-            file_size_mb = os.path.getsize(video_path) / (1024 * 1024)
-            estimated_duration = file_size_mb * 0.3  # ~0.3 min per MB estimate
-            st.info(f"Szacowana długość na podstawie rozmiaru pliku: {estimated_duration:.1f} min")
-            return estimated_duration
-
-    def estimate_tokens(self, text, language='en'):
-        """Szacuj liczbę tokenów (różne języki = różne tokeny)"""
-        multipliers = {
-            'en': 1.0, 'es': 1.1, 'fr': 1.2, 'de': 1.3, 'it': 1.1,
-            'pl': 1.4, 'ru': 1.6, 'ja': 0.7, 'ko': 0.8, 'zh': 0.6
-        }
-        char_count = len(text)
-        base_tokens = char_count / 4  # 1 token ≈ 4 characters
-        multiplier = multipliers.get(language, 1.0)
-        return int(base_tokens * multiplier)
-
-    def calculate_precise_costs(self, video_duration_minutes, srt_content, target_language, model_name):
-        """✅ POPRAWIONE: Precyzyjne wyliczenie kosztów z prawdziwymi cenami"""
-        
-        # 1. WHISPER COSTS (stałe)
-        whisper_cost = video_duration_minutes * 0.006  # $0.006/min
-        
-        # 2. AI MODEL COSTS - PRAWDZIWE CENY (wrzesień 2025)
-        input_tokens = self.estimate_tokens(srt_content, target_language)
-        output_tokens = int(input_tokens * 0.8)  # Tłumaczenie zwykle krótsze
-        
-        # ✅ PRAWDZIWE CENY OPENAI (per 1M tokens)
-        model_pricing = {
-            'gpt-4o': {
-                'input': 5.00,    # $5.00/1M input tokens
-                'output': 15.00,  # $15.00/1M output tokens
-                'display_name': 'GPT-4o'
-            },
-            'gpt-4o-mini': {
-                'input': 0.15,    # $0.15/1M input tokens (33x tańsze input)
-                'output': 0.60,   # $0.60/1M output tokens (25x tańsze output)
-                'display_name': 'GPT-4o-mini'
-            }
-        }
-        
-        pricing = model_pricing.get(model_name, model_pricing['gpt-4o'])
-        
-        # Wylicz koszty AI
-        ai_input_cost = (input_tokens / 1_000_000) * pricing['input']
-        ai_output_cost = (output_tokens / 1_000_000) * pricing['output']
-        ai_total_cost = ai_input_cost + ai_output_cost
-        
-        # Porównanie z GPT-4o (baseline)
-        gpt4o_pricing = model_pricing['gpt-4o']
-        gpt4o_input_cost = (input_tokens / 1_000_000) * gpt4o_pricing['input']
-        gpt4o_output_cost = (output_tokens / 1_000_000) * gpt4o_pricing['output']
-        gpt4o_total_cost = gpt4o_input_cost + gpt4o_output_cost
-        
-        # Wylicz oszczędności
-        savings_percent = (gpt4o_total_cost - ai_total_cost) / gpt4o_total_cost if gpt4o_total_cost > 0 else 0
-        times_cheaper = gpt4o_total_cost / ai_total_cost if ai_total_cost > 0 else 1
-        
-        return {
-            'whisper': whisper_cost,
-            'ai_model': ai_total_cost,
-            'ai_input_cost': ai_input_cost,
-            'ai_output_cost': ai_output_cost,
-            'total': whisper_cost + ai_total_cost,
-            'input_tokens': input_tokens,
-            'output_tokens': output_tokens,
-            'savings_percent': savings_percent,
-            'times_cheaper': times_cheaper,
-            'duration_mins': video_duration_minutes,
-            'model_display_name': pricing['display_name'],
-            'input_price_per_1m': pricing['input'],
-            'output_price_per_1m': pricing['output']
-        }
-
-    def translate_srt_with_model(self, srt_content, target_language, model_name):
-        """Universal translation method with model choice"""
-        try:
-            language_names = {
-                'en': 'angielski', 'es': 'hiszpański', 'fr': 'francuski',
-                'de': 'niemiecki', 'it': 'włoski', 'pl': 'polski',
-                'ru': 'rosyjski', 'ja': 'japoński', 'ko': 'koreański', 'zh': 'chiński'
-            }
-            target_lang_name = language_names.get(target_language, target_language)
-            subs = pysrt.from_string(srt_content)
-            translated_subs = []
-            
-            model_display = "GPT-4o" if model_name == "gpt-4o" else "GPT-4o-mini"
-            progress_bar = st.progress(0, text=f"Tłumaczenie napisów za pomocą {model_display}...")
-            total_subs = len(subs)
-            chunk_size = 10
-            chunks = self.split_text_for_translation(subs, chunk_size)
-            
-            for chunk_idx, sub_chunk in enumerate(chunks):
-                combined_text = "\n".join([f"[{sub.index}] {sub.text}" for sub in sub_chunk])
-                try:
-                    response = self.client.chat.completions.create(
-                        model=model_name,  # ✅ DYNAMIC MODEL
-                        messages=[
-                            {"role": "system", "content": f"""Jesteś profesjonalnym tłumaczem napisów filmowych.
-Przetłumacz poniższe napisy na język {target_lang_name}.
-
-WAŻNE ZASADY:
-- Zachowaj numerację [X] na początku każdej linii
-- Tłumacz naturalnie, zachowując styl dialogu filmowego
-- Nie dodawaj dodatkowych komentarzy
-- Zachowaj emocjonalny ton wypowiedzi
-- Dostosuj tłumaczenie do kontekstu kulturowego
-- Jeśli to żart lub idiom, znajdź odpowiednik w docelowym języku
-Podaj tylko przetłumaczone teksty z zachowaną numeracją."""},
-                            {"role": "user", "content": combined_text}
-                        ],
-                        temperature=0.3,
-                        max_tokens=2000,
-                    )
-                    translated_text = response.choices[0].message.content.strip()
-                    translated_lines = translated_text.split('\n')
-                    
-                    for i, sub in enumerate(sub_chunk):
-                        if i < len(translated_lines):
-                            translated_line = translated_lines[i]
-                            if '] ' in translated_line:
-                                translated_content = translated_line.split('] ', 1)[1]
-                            else:
-                                translated_content = translated_line
-                            translated_sub = pysrt.SubRipItem(
-                                index=sub.index,
-                                start=sub.start,
-                                end=sub.end,
-                                text=translated_content.strip()
-                            )
-                            translated_subs.append(translated_sub)
-                        else:
-                            translated_subs.append(sub)
-                except Exception as e:
-                    st.warning(f"⚠️ Błąd {model_display} podczas tłumaczenia fragmentu {chunk_idx + 1}: {e}")
-                    for sub in sub_chunk:
-                        translated_subs.append(sub)
-                
-                progress_completed = min((chunk_idx + 1) * chunk_size, total_subs)
-                progress_bar.progress(progress_completed / total_subs)
-            
-            progress_bar.empty()
-            
-            # ✅ POPRAWIONE: HTML entity na normalny znak
-            srt_output = ""
-            for sub in translated_subs:
-                srt_output += f"{sub.index}\n{sub.start} --> {sub.end}\n{sub.text}\n\n"
-            return srt_output
-        except Exception as e:
-            st.error(f"Błąd tłumaczenia: {e}")
-            return None
-
-    def embed_subtitles_to_video(self, video_path, srt_path, output_path, hard_subtitle=False):
-        """Super prosta wersja - zawsze działa na Windows"""
-        try:
-            if not os.path.exists(video_path):
-                st.error(f"Plik wideo nie istnieje: {video_path}")
-                return False
-            if not os.path.exists(srt_path):
-                st.error(f"Plik napisów nie istnieje: {srt_path}")
-                return False
-            if hard_subtitle:
-                import shutil
-                srt_name = "subs.srt"
-                temp_srt = os.path.join(os.path.dirname(video_path), srt_name)
-                shutil.copy2(srt_path, temp_srt)
-                cmd = [
-                    'ffmpeg',
-                    '-i', video_path,
-                    '-vf', f'subtitles={srt_name}',
-                    '-c:a', 'copy',
-                    '-y', output_path
-                ]
-                old_cwd = os.getcwd()
-                os.chdir(os.path.dirname(video_path))
-                try:
-                    result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-                finally:
-                    os.chdir(old_cwd)
-            else:
-                cmd = [
-                    'ffmpeg',
-                    '-i', video_path,
-                    '-i', srt_path,
-                    '-c', 'copy',
-                    '-c:s', 'mov_text',
-                    '-y', output_path
-                ]
-                result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-            return True
-        except subprocess.CalledProcessError as e:
-            st.error(f"FFmpeg error: {e.stderr}")
-            if "subtitles" in str(e.stderr).lower():
-                st.info("💡 Spróbuj z miękkimi napisami - są bardziej uniwersalne")
-            return False
-        except Exception as e:
-            st.error(f"Unexpected error: {e}")
-            return False
-
+     
 
 def main():
     st.set_page_config(
@@ -432,12 +250,7 @@ def main():
 {model_info['description']}
 """)
 
-        languages = {
-            'en': 'Angielski 🇺🇸', 'es': 'Hiszpański 🇪🇸', 'fr': 'Francuski 🇫🇷',
-            'de': 'Niemiecki 🇩🇪', 'it': 'Włoski 🇮🇹', 'pl': 'Polski 🇵🇱',
-            'ru': 'Rosyjski 🇷🇺', 'ja': 'Japoński 🇯🇵', 'ko': 'Koreański 🇰🇷',
-            'zh': 'Chiński 🇨🇳'
-        }
+        languages = generator.get_supported_languages()
 
         target_lang = st.selectbox(
             "Wybierz język tłumaczenia",
@@ -496,7 +309,12 @@ def main():
                     st.success("✅ Transkrypcja zakończona")
 
                     if detected_language:
-                        st.success(f"🌍 Wykryty język filmu: {detected_language}")
+                         detected_language_name = generator.get_language_name(detected_language)
+
+                         st.success(
+                            f"🌍 Wykryty język filmu: "
+                            f"{detected_language_name} ({detected_language})"
+                        )
                     else:
                         st.warning("⚠️ Nie udało się automatycznie wykryć języka filmu.")
                 else:
